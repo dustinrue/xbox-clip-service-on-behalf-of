@@ -14,7 +14,7 @@ const cca = new ConfidentialClientApplication(clientConfig)
 async function MicrosoftAuthUrl() {
   const authCodeUrlParameters = {
     scopes: ['Xboxlive.signin', 'offline_access'],
-    redirectUri: 'http://localhost:3000/auth',
+    redirectUri: `${process.env.SERVER_BASE_URL}/auth`,
   }
 
   // get url to sign user in and consent to scopes needed for application
@@ -26,7 +26,7 @@ async function MicrosoftAuthUrl() {
 async function AuthorizeXbox(code: string) {
   const tokenRequest = {
     code,
-    redirectUri: 'http://localhost:3000/auth',
+    redirectUri: `${process.env.SERVER_BASE_URL}/auth`,
     scopes: ['Xboxlive.signin', 'offline_access'],
   }
 

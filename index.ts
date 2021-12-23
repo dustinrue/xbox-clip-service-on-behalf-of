@@ -60,7 +60,7 @@ app.get('/auth', async (req: Request, res: Response) => {
   try {
     const code = req.query.code
     const xbl3Response = await AuthorizeXbox(code as string)
-    const url = `http://localhost:4200/?xbl3Token=${xbl3Response.xbl3Token}&notAfter=${xbl3Response.notAfter}`
+    const url = `${process.env.APP_BASE_URL}/?xbl3Token=${xbl3Response.xbl3Token}&notAfter=${xbl3Response.notAfter}`
     return res.redirect(url)
   } catch (err) {
     return res.status(500).send({
