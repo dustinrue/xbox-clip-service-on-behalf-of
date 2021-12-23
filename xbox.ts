@@ -1,29 +1,47 @@
 import axios from 'axios'
 import { URLSearchParams } from 'url'
+import msal, { ConfidentialClientApplication } from '@azure/msal-node'
 
-async function AuthorizeXbox(appAccessToken: string): Promise<string> {
-  const swapTokenUrl =
-    'https://login.microsoftonline.com/consumers/oauth2/v2.0/token'
-  const swapTokenParams = new URLSearchParams()
-  swapTokenParams.append(
-    'grant_type',
-    'urn:ietf:params:oauth:grant-type:jwt-bearer'
-  )
-  swapTokenParams.append('client_id', process.env.CLIENT_ID || '')
-  swapTokenParams.append('client_secret', process.env.CLIENT_SECRET || '')
-  swapTokenParams.append('assertion', appAccessToken || '')
-  swapTokenParams.append('scope', 'XboxLive.signin offline_access')
-  swapTokenParams.append('requested_token_use', 'on_behalf_of')
+const clientConfig = {
+  auth: {
+    clientId: process.env.CLIENT_ID || '',
+    authority: 'https://login.microsoftonline.com/consumers/',
+    clientSecret: process.env.CLIENT_SECRET || '',
+  },
+}
+const cca = new ConfidentialClientApplication(clientConfig)
 
-  const swapTokenResponse = await axios.post(swapTokenUrl, swapTokenParams)
-  // console.log(swapTokenResponse)
+async function MicrosoftAuthUrl() {
+  const authCodeUrlParameters = {
+    scopes: ['Xboxlive.signin', 'offline_access'],
+    redirectUri: 'http://localhost:3000/auth',
+  }
+
+  // get url to sign user in and consent to scopes needed for application
+  const url = await cca.getAuthCodeUrl(authCodeUrlParameters)
+
+  return url
+}
+
+async function AuthorizeXbox(code: string) {
+  const tokenRequest = {
+    code,
+    redirectUri: 'http://localhost:3000/auth',
+    scopes: ['Xboxlive.signin', 'offline_access'],
+  }
+
+  // acquire a token by exchanging the code
+  const tokenResponse = await cca.acquireTokenByCode(tokenRequest)
+
+  const accessToken = tokenResponse?.accessToken
+  // console.log(accessToken)
 
   const xblUrl = 'https://user.auth.xboxlive.com/user/authenticate'
   const xblParams = {
     Properties: {
       AuthMethod: 'RPS',
       SiteName: 'user.auth.xboxlive.com',
-      RpsTicket: `d=${swapTokenResponse.data.access_token}`,
+      RpsTicket: `d=${accessToken}`,
     },
     RelyingParty: 'http://auth.xboxlive.com',
     TokenType: 'JWT',
@@ -46,7 +64,7 @@ async function AuthorizeXbox(appAccessToken: string): Promise<string> {
   const xbl3Token = `XBL3.0 x=${xstsResponse.data.DisplayClaims.xui[0].uhs};${xstsResponse.data.Token}`
   // console.log(xbl3Token)
 
-  return xbl3Token
+  return { notAfter: xstsResponse.data.NotAfter, xbl3Token }
 }
 
 async function GetXuid(gamertag: string, xbl3Token: string): Promise<string> {
@@ -80,4 +98,4 @@ async function GetClips(
   return clipsResponse.data || {}
 }
 
-export { AuthorizeXbox, GetXuid, GetClips }
+export { MicrosoftAuthUrl, AuthorizeXbox, GetXuid, GetClips }

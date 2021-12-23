@@ -1,7 +1,7 @@
 require('dotenv').config()
 import express, { Application, Request, Response } from 'express'
 import cors from 'cors'
-import { AuthorizeXbox, GetXuid, GetClips } from './xbox'
+import { MicrosoftAuthUrl, AuthorizeXbox, GetXuid, GetClips } from './xbox'
 import NodeCache from 'node-cache'
 
 const bl3TokenCache = new NodeCache({
@@ -44,27 +44,39 @@ app.get('/', async (req: Request, res: Response): Promise<Response> => {
   })
 })
 
+app.get('/login', async (req: Request, res: Response) => {
+  try {
+    const url = await MicrosoftAuthUrl()
+    return res.redirect(url)
+  } catch (err) {
+    console.log(err)
+    return res.status(500).send({
+      message: 'Error logging in',
+    })
+  }
+})
+
+app.get('/auth', async (req: Request, res: Response) => {
+  try {
+    const code = req.query.code
+    const xbl3Response = await AuthorizeXbox(code as string)
+    const url = `http://localhost:4200/?xbl3Token=${xbl3Response.xbl3Token}&notAfter=${xbl3Response.notAfter}`
+    return res.redirect(url)
+  } catch (err) {
+    return res.status(500).send({
+      message: 'Something went wrong',
+    })
+  }
+})
+
 app.get(
   '/destiny2/:gamertag',
   async (req: Request, res: Response): Promise<Response> => {
-    const access_token = req.header('Authorization')
-    let xbl3Token: string | undefined = access_token
-      ? bl3TokenCache.get(access_token)
-      : undefined
+    const xbl3Token = req.header('Authorization')
     if (!xbl3Token) {
-      try {
-        xbl3Token = await AuthorizeXbox(access_token || '')
-        bl3TokenCache.set(access_token!, xbl3Token)
-      } catch (e: any) {
-        if (e.response.status === 429) {
-          return res
-            .status(429)
-            .send(e.response.data || { message: 'Too many requests' })
-        }
-        return res.status(401).send({
-          message: 'Unauthorized',
-        })
-      }
+      return res.status(401).send({
+        message: 'Unauthorized',
+      })
     }
 
     let xuid: string | undefined = xuidCache.get(req.params.gamertag)
