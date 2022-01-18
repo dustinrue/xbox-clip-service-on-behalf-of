@@ -63,6 +63,7 @@ app.get('/auth', async (req: Request, res: Response) => {
     const url = `${process.env.APP_BASE_URL}/?xbl3Token=${xbl3Response.xbl3Token}&notAfter=${xbl3Response.notAfter}`
     return res.redirect(url)
   } catch (err) {
+    console.log(err)
     return res.status(500).send({
       message: 'Something went wrong',
     })
